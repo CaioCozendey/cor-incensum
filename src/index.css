@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply antialiased;
+  }
+
+  * {
+    @apply transition-colors duration-200;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-parchment-200 dark:bg-marian-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gold-500/50 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gold-500;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-gold-500/30 text-crimson-900;
+  }
+}
+
+@layer components {
+  .prose-prayer {
+    @apply font-body text-base text-marian-800 dark:text-parchment-200 leading-loose;
+  }
+
+  .card-sacred {
+    @apply bg-parchment-100 dark:bg-marian-700 rounded-xl border border-gold-500/20
+      hover:border-gold-500/50 shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-full
+      bg-crimson-700 hover:bg-crimson-800 text-parchment-100
+      font-body text-sm tracking-wide shadow-lg shadow-crimson-900/20
+      hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-full
+      border-2 border-gold-500 text-gold-700 dark:text-gold-400
+      hover:bg-gold-500/10 font-body text-sm tracking-wide
+      transition-all duration-200;
+  }
+
+  .input-sacred {
+    @apply w-full px-4 py-3 rounded-xl border border-gold-500/30
+      bg-parchment-50 dark:bg-marian-600 text-marian-800 dark:text-parchment-200
+      placeholder-marian-400 dark:placeholder-parchment-500
+      focus:outline-none focus:ring-2 focus:ring-gold-500/40
+      font-body text-sm transition-all;
+  }
+
+  .section-title {
+    @apply font-serif text-3xl sm:text-4xl font-semibold text-crimson-800 dark:text-parchment-100;
+  }
+
+  .section-label {
+    @apply font-sans text-xs uppercase tracking-[0.3em] text-gold-600 dark:text-gold-500;
+  }
+
+  .divider-sacred {
+    @apply flex items-center gap-3 my-8;
+  }
+
+  .divider-sacred::before,
+  .divider-sacred::after {
+    @apply content-[''] flex-1 h-px bg-gold-500/30;
+  }
+}
+
+@layer utilities {
+  .text-shadow-gold {
+    text-shadow: 0 2px 8px rgba(201, 162, 39, 0.3);
+  }
+
+  .bg-sacred-pattern {
+    background-image: radial-gradient(circle at 1px 1px, rgba(201, 162, 39, 0.15) 1px, transparent 0);
+    background-size: 32px 32px;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+}

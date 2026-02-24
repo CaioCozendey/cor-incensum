@@ -1,11 +1,10 @@
-import { useState, useRef } from 'react';
-import { Plus, Pencil, Trash2, Lock, Eye, EyeOff, Shield, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2, Lock, Eye, EyeOff, Shield, CheckCircle, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Prayer, Novena, NovenaDay, PrayerCategory, CATEGORY_LABELS } from '../types';
 import { generateSlug } from '../utils/helpers';
+import { supabase } from '../utils/supabase';
 import RichEditor from '../components/ui/RichEditor';
-
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'cor-incensum-admin-2024';
 
 type AdminTab = 'prayers' | 'novenas';
 type ModalMode = 'create-prayer' | 'edit-prayer' | 'create-novena' | 'edit-novena' | null;
@@ -28,22 +27,47 @@ const makeEmptyNovenaForm = (): NovenaForm => ({
   days: Array.from({ length: 9 }, (_, i) => ({ day: i + 1, title: `${i + 1}º Dia`, text: '' })),
 });
 
-let lastSubmitTime = 0;
-const COOLDOWN = 3000;
-
 export default function AdminPage() {
   const { prayers, novenas, addPrayer, updatePrayer, deletePrayer, addNovena, updateNovena, deleteNovena } = useApp();
 
-  // Auth
-  const [authenticated, setAuthenticated] = useState(() => sessionStorage.getItem('cor-admin-auth') === 'true');
+  // ── Auth ──────────────────────────────────────────
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authAttempts, setAuthAttempts] = useState(0);
-  const [lockedOut, setLockedOut] = useState(false);
-  const honeypotRef = useRef<HTMLInputElement>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  // UI
+  // Verifica sessão ativa ao carregar
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthenticated(!!data.session);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setAuthenticated(!!session);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setLoginLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailInput,
+      password: passwordInput,
+    });
+    if (error) setAuthError('Email ou senha incorretos.');
+    setLoginLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // ── UI ────────────────────────────────────────────
   const [tab, setTab] = useState<AdminTab>('prayers');
   const [modal, setModal] = useState<ModalMode>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,31 +78,6 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  // Auth
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (honeypotRef.current?.value) { setAuthError('Erro.'); return; }
-    const now = Date.now();
-    if (now - lastSubmitTime < COOLDOWN) { setAuthError('Aguarde um momento.'); return; }
-    lastSubmitTime = now;
-    if (lockedOut) { setAuthError('Conta bloqueada. Tente em alguns minutos.'); return; }
-    if (passwordInput === ADMIN_PASSWORD) {
-      setAuthenticated(true);
-      sessionStorage.setItem('cor-admin-auth', 'true');
-      setAuthError(''); setAuthAttempts(0);
-    } else {
-      const a = authAttempts + 1;
-      setAuthAttempts(a);
-      if (a >= 5) {
-        setLockedOut(true);
-        setTimeout(() => { setLockedOut(false); setAuthAttempts(0); }, 5 * 60 * 1000);
-        setAuthError('Muitas tentativas. Bloqueado por 5 minutos.');
-      } else {
-        setAuthError(`Senha incorreta. Tentativa ${a}/5.`);
-      }
-    }
-  };
 
   // Prayer handlers
   const openCreatePrayer = () => { setPrayerForm(emptyPrayerForm); setEditingId(null); setModal('create-prayer'); setError(''); };
@@ -145,6 +144,15 @@ export default function AdminPage() {
   const inputCls = "w-full px-4 py-2.5 rounded-xl border border-gold-500/30 bg-parchment-50 dark:bg-marian-600 text-marian-800 dark:text-parchment-200 placeholder-marian-400 dark:placeholder-parchment-500 focus:outline-none focus:ring-2 focus:ring-gold-500/40 font-body text-sm";
   const labelCls = "block font-sans text-xs uppercase tracking-wider text-gold-600 dark:text-gold-500 mb-1";
 
+  // ══ LOADING (verificando sessão) ═══════════════════════════════════════
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-parchment-200 dark:bg-marian-800">
+        <div className="w-8 h-8 border-2 border-gold-500/30 border-t-gold-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   // ══ LOGIN ══════════════════════════════════════════════════════════════
   if (!authenticated) {
     return (
@@ -158,27 +166,53 @@ export default function AdminPage() {
             </div>
             <h2 className="font-serif text-2xl text-crimson-800 dark:text-parchment-100 text-center mb-1">Área Restrita</h2>
             <p className="font-body text-sm text-marian-500 dark:text-parchment-500 text-center mb-8">Administração do Cor Incensum</p>
-            <form onSubmit={handleLogin} noValidate>
-              <input ref={honeypotRef} type="text" name="website" tabIndex={-1}
-                style={{ position: 'absolute', left: '-9999px', opacity: 0 }} autoComplete="off" />
-              <div className="relative mb-4">
+
+            <form onSubmit={handleLogin} noValidate className="space-y-4">
+              {/* Email */}
+              <div className="relative">
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-marian-400 dark:text-parchment-500" />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={emailInput}
+                  onChange={e => setEmailInput(e.target.value)}
+                  required
+                  className="w-full pl-11 py-3 rounded-xl border border-gold-500/30 bg-parchment-50 dark:bg-marian-600 text-marian-800 dark:text-parchment-200 placeholder-marian-400 dark:placeholder-parchment-500 focus:outline-none focus:ring-2 focus:ring-gold-500/40 font-body text-sm"
+                />
+              </div>
+
+              {/* Senha */}
+              <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-marian-400 dark:text-parchment-500" />
-                <input type={showPassword ? 'text' : 'password'} placeholder="Senha de administrador"
-                  value={passwordInput} onChange={e => setPasswordInput(e.target.value)} disabled={lockedOut}
-                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gold-500/30 bg-parchment-50 dark:bg-marian-600 text-marian-800 dark:text-parchment-200 placeholder-marian-400 dark:placeholder-parchment-500 focus:outline-none focus:ring-2 focus:ring-gold-500/40 font-body text-sm disabled:opacity-50" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Senha"
+                  value={passwordInput}
+                  onChange={e => setPasswordInput(e.target.value)}
+                  required
+                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gold-500/30 bg-parchment-50 dark:bg-marian-600 text-marian-800 dark:text-parchment-200 placeholder-marian-400 dark:placeholder-parchment-500 focus:outline-none focus:ring-2 focus:ring-gold-500/40 font-body text-sm"
+                />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-marian-400 dark:text-parchment-500">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {authError && <p className="font-body text-sm text-crimson-600 dark:text-crimson-400 mb-4 text-center">{authError}</p>}
-              <button type="submit" disabled={lockedOut || !passwordInput}
-                className="w-full py-3 rounded-xl bg-crimson-700 hover:bg-crimson-800 text-parchment-100 font-body tracking-wide shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                {lockedOut ? 'Acesso Bloqueado' : 'Entrar'}
+
+              {authError && (
+                <p className="font-body text-sm text-crimson-600 dark:text-crimson-400 text-center">{authError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loginLoading || !emailInput || !passwordInput}
+                className="w-full py-3 rounded-xl bg-crimson-700 hover:bg-crimson-800 text-parchment-100 font-body tracking-wide shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loginLoading ? 'Entrando...' : 'Entrar'}
               </button>
             </form>
+
             <p className="font-body text-xs text-marian-400 dark:text-parchment-600 text-center mt-6">
-              Área protegida contra acesso não autorizado.
+              Área protegida. Apenas administradores autorizados.
             </p>
           </div>
         </div>
@@ -195,7 +229,8 @@ export default function AdminPage() {
             <p className="font-sans text-xs uppercase tracking-[0.3em] text-gold-600 dark:text-gold-500 mb-1">✦ Administração ✦</p>
             <h1 className="font-serif text-3xl text-crimson-800 dark:text-parchment-100">Painel Admin</h1>
           </div>
-          <button onClick={() => { setAuthenticated(false); sessionStorage.removeItem('cor-admin-auth'); }}
+          <button
+            onClick={handleLogout}
             className="px-4 py-2 rounded-lg border border-gold-500/30 font-body text-sm text-marian-600 dark:text-parchment-400 hover:border-crimson-600 hover:text-crimson-600 dark:hover:text-crimson-400 transition-colors">
             Sair
           </button>
@@ -369,7 +404,6 @@ export default function AdminPage() {
                     {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
-
                 <RichEditor
                   label="Texto da Oração *"
                   value={prayerForm.text}
@@ -377,7 +411,6 @@ export default function AdminPage() {
                   placeholder="Digite o texto completo da oração..."
                   rows={12}
                 />
-
                 <div>
                   <label className={labelCls}>URL da Imagem (opcional)</label>
                   <input type="url" value={prayerForm.image_url}
@@ -413,17 +446,13 @@ export default function AdminPage() {
           <div className="min-h-screen px-4 py-10 flex items-start justify-center">
             <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm" onClick={() => setModal(null)} />
             <div className="relative z-10 w-full max-w-3xl bg-parchment-100 dark:bg-marian-700 rounded-2xl shadow-2xl border border-gold-500/30">
-
-              {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-gold-500/20">
                 <h2 className="font-serif text-xl text-crimson-800 dark:text-parchment-100">
                   {modal === 'create-novena' ? '✦ Nova Novena' : '✦ Editar Novena'}
                 </h2>
                 <button onClick={() => setModal(null)} className="p-1.5 rounded-lg text-marian-400 hover:text-crimson-600 dark:hover:text-crimson-400 transition-colors text-xl leading-none">✕</button>
               </div>
-
               <form onSubmit={handleNovenaSubmit}>
-                {/* Info geral */}
                 <div className="p-6 space-y-4 border-b border-gold-500/20">
                   <p className="font-sans text-xs uppercase tracking-widest text-gold-600 dark:text-gold-500">Informações Gerais</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -453,8 +482,6 @@ export default function AdminPage() {
                       className={`${inputCls} resize-none`} placeholder="Breve descrição exibida no card..." />
                   </div>
                 </div>
-
-                {/* Seletor de dias */}
                 <div className="p-6 border-b border-gold-500/20">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-sans text-xs uppercase tracking-widest text-gold-600 dark:text-gold-500">Dias da Novena</p>
@@ -468,12 +495,9 @@ export default function AdminPage() {
                     {Array.from({ length: 9 }, (_, i) => (
                       <button key={i} type="button" onClick={() => setActiveDay(i)}
                         className={`relative w-10 h-10 rounded-full font-sans text-sm font-bold border-2 transition-all
-                          ${activeDay === i
-                            ? 'bg-crimson-700 border-crimson-700 text-white shadow-md'
-                            : dayFilled(i)
-                              ? 'bg-gold-100 dark:bg-gold-900/30 border-gold-500 text-gold-700 dark:text-gold-400'
-                              : 'border-gold-500/30 text-marian-500 dark:text-parchment-500 hover:border-gold-500/60'
-                          }`}>
+                          ${activeDay === i ? 'bg-crimson-700 border-crimson-700 text-white shadow-md'
+                            : dayFilled(i) ? 'bg-gold-100 dark:bg-gold-900/30 border-gold-500 text-gold-700 dark:text-gold-400'
+                            : 'border-gold-500/30 text-marian-500 dark:text-parchment-500 hover:border-gold-500/60'}`}>
                         {i + 1}
                         {dayFilled(i) && activeDay !== i && (
                           <span className="absolute -top-1 -right-1 w-3 h-3 bg-gold-500 rounded-full border-2 border-parchment-100 dark:border-marian-700" />
@@ -482,8 +506,6 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Editor do dia */}
                 <div className="p-6 space-y-4 border-b border-gold-500/20">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="w-8 h-8 rounded-full bg-crimson-700/10 dark:bg-crimson-900/30 border border-crimson-700/20 flex items-center justify-center">
@@ -499,7 +521,6 @@ export default function AdminPage() {
                       onChange={e => updateNovenaDay(activeDay, 'title', e.target.value)}
                       className={inputCls} placeholder={`Ex: ${activeDay + 1}º Dia — Fé e Esperança`} />
                   </div>
-
                   <RichEditor
                     label={`Texto do ${activeDay + 1}º Dia *`}
                     value={novenaForm.days[activeDay]?.text || ''}
@@ -507,7 +528,6 @@ export default function AdminPage() {
                     placeholder={`Escreva a oração do ${activeDay + 1}º dia...`}
                     rows={10}
                   />
-
                   <div className="flex gap-2 pt-1">
                     {activeDay > 0 && (
                       <button type="button" onClick={() => setActiveDay(activeDay - 1)}
@@ -523,8 +543,6 @@ export default function AdminPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Footer */}
                 <div className="p-6 space-y-3">
                   {error && <p className="font-body text-sm text-crimson-600 dark:text-crimson-400">{error}</p>}
                   {filledCount < 9 && (

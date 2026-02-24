@@ -18,7 +18,8 @@ export type PrayerCategory =
   | 'repentance' 
   | 'daily' 
   | 'marian'
-  | 'sacred_heart';
+  | 'sacred_heart'
+  | 'study';
 
 export const CATEGORY_LABELS: Record<PrayerCategory, string> = {
   intercession: 'Intercessão',
@@ -28,6 +29,7 @@ export const CATEGORY_LABELS: Record<PrayerCategory, string> = {
   daily: 'Diária',
   marian: 'Mariana',
   sacred_heart: 'Sagrado Coração',
+  study: "Estudo"
 };
 
 export interface NovenaDay {

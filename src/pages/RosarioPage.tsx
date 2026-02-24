@@ -136,7 +136,7 @@ export default function RosarioPage() {
     { id: 'como-rezar', label: '📖 Como Rezar' },
     { id: 'oração', label: '🙏 A Oração' },
     { id: 'mistérios', label: '✦ Os Mistérios' },
-    { id: 'como-rezar-sao-luiz-maria', label: '📖 Como rezar com São Luis Maria' },
+    { id: 'como-rezar-sao-luiz-maria', label: '📖 Rosário com São Luis Maria Grignion de Montfort' },
   ];
 
   const oracoesLista = [

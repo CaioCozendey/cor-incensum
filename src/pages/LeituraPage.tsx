@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, RefreshCw, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { CalendarDays, RefreshCw, ChevronDown, ChevronUp, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface LeituraRaw {
@@ -12,6 +12,7 @@ interface SalmoRaw {
   referencia: string;
   titulo?: string;
   texto: string;
+  refrao?: string; // 👈 ADICIONE ISSO
 }
 
 interface LiturgiaAPIResponse {
@@ -33,10 +34,39 @@ interface LeituraFormatada {
   texto: string;
 }
 
-interface SalmoFormatado {
+interface LinhasSalmo {
   referencia: string;
-  refrao: string;      // a linha em negrito/repetida = a resposta do povo
-  estrofes: string[];  // cada grupo de linhas entre refrões
+  // Cada item é: { tipo: 'refrao-normal' | 'refrao-negrito' | 'estrofe', texto: string }
+  linhas: { tipo: 'refrao-normal' | 'refrao-negrito' | 'estrofe'; texto: string }[];
+}
+
+function formatarVersiculos(texto: string) {
+  return texto.replace(/(\s|^)(\d+)(?=\D)/g, '$1<strong>$2</strong> ');
+}
+
+// ── Helpers de data ────────────────────────────────────────────────────────
+function addDias(base: Date, n: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function formatApiDate(d: Date) {
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const ano = d.getFullYear();
+  return `${dia}-${mes}-${ano}`;
+}
+
+function formatDisplay(d: Date) {
+  return d.toLocaleDateString('pt-BR', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+function isHoje(d: Date): boolean {
+  const hoje = new Date();
+  return d.toDateString() === hoje.toDateString();
 }
 
 // ── Parser de leitura ──────────────────────────────────────────────────────
@@ -50,75 +80,40 @@ function parseLeitura(raw: LeituraRaw, label: string): LeituraFormatada {
 }
 
 // ── Parser do salmo ────────────────────────────────────────────────────────
-// Estrutura real da API liturgia.up.railway.app:
-//   "- O Senhor liberta os justos de todas as angústias.\n\n
-//    - **O Senhor liberta os justos de todas as angústias.**\n\n
-//    - Comigo engrandeci ao Senhor Deus...\n\n
-//    - Contemplai a sua face..."
-//
-// Regras:
-//  • Cada bloco separado por linha em branco é uma unidade
-//  • A linha com ** ** é o REFRÃO (resposta do povo)
-//  • As demais linhas (que começam com "-") são as estrofes, cada uma separada
-function parseSalmo(raw: SalmoRaw): SalmoFormatado {
-  const texto = raw.texto || '';
 
-  // Divide por linha em branco → cada bloco é uma linha/estrofe
-  const blocos = texto
-    .split(/\n{2,}/)
-    .map(b => b.trim())
-    .filter(Boolean);
+function parseSalmo(raw: SalmoRaw): LinhasSalmo {
+  const linhas: LinhasSalmo['linhas'] = [];
 
-  let refrao = '';
-  const estrofes: string[] = [];
+  // 🔥 1 — Se existir refrão vindo da API
+  if (raw.refrao) {
+    linhas.push({
+      tipo: 'refrao-normal',
+      texto: raw.refrao.trim(),
+    });
 
-  for (const bloco of blocos) {
-    // Detecta refrão: contém marcação **negrito**
-    if (/\*\*/.test(bloco)) {
-      if (!refrao) {
-        // Extrai o texto limpo: remove "- ", "**", espaços
-        refrao = bloco
-          .replace(/^[-–]\s*/, '')
-          .replace(/\*\*/g, '')
-          .trim();
-      }
-      // Pula todas as ocorrências do refrão (não adiciona como estrofe)
-      continue;
-    }
-
-    // Linha normal de estrofe: remove o "- " do início
-    const linhaLimpa = bloco.replace(/^[-–]\s*/, '').trim();
-    if (linhaLimpa) estrofes.push(linhaLimpa);
+    linhas.push({
+      tipo: 'refrao-negrito',
+      texto: raw.refrao.trim(),
+    });
   }
 
-  // Fallback: se não encontrou negrito, usa a segunda linha como refrão
-  // (padrão de alguns dias onde a API não usa **)
-  if (!refrao && blocos.length >= 2) {
-    // Procura linha que se repete (normalizada)
-    const norm = (s: string) => s.replace(/^[-–*\s]+/, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const vistos: Record<string, number> = {};
-    for (const b of blocos) { const n = norm(b); vistos[n] = (vistos[n] || 0) + 1; }
-    for (const b of blocos) {
-      if (vistos[norm(b)] >= 2) {
-        refrao = b.replace(/^[-–]\s*/, '').replace(/\*\*/g, '').trim();
-        break;
-      }
-    }
-    // Reconstrói estrofes excluindo o refrão repetido
-    if (refrao) {
-      const refraoNorm = refrao.toLowerCase().trim();
-      estrofes.length = 0;
-      for (const b of blocos) {
-        const linhaLimpa = b.replace(/^[-–]\s*/, '').replace(/\*\*/g, '').trim();
-        if (linhaLimpa.toLowerCase() !== refraoNorm) estrofes.push(linhaLimpa);
-      }
-    }
+  // 🔥 2 — Quebra as estrofes corretamente
+  const estrofes = (raw.texto || '')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(p => p.replace(/^—\s*/, '').trim())
+    .filter(Boolean);
+
+  for (const estrofe of estrofes) {
+    linhas.push({
+      tipo: 'estrofe',
+      texto: estrofe,
+    });
   }
 
   return {
     referencia: raw.referencia || raw.titulo || '',
-    refrao,
-    estrofes,
+    linhas,
   };
 }
 
@@ -137,16 +132,10 @@ function Separador({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 my-1">
       <span className="h-px flex-1 bg-gold-500/20" />
-      <span className="font-sans text-[10px] uppercase tracking-widest text-gold-600 dark:text-gold-500 whitespace-nowrap">
-        {label}
-      </span>
+      <span className="font-sans text-[10px] uppercase tracking-widest text-gold-600 dark:text-gold-500 whitespace-nowrap">{label}</span>
       <span className="h-px flex-1 bg-gold-500/20" />
     </div>
   );
-}
-
-function formatarVersiculos(texto: string) {
-  return texto.replace(/(\s|^)(\d+)(?=\D)/g, '$1<strong>$2</strong> ');
 }
 
 // ── Card de Leitura ────────────────────────────────────────────────────────
@@ -158,19 +147,14 @@ function LeituraCard({ leitura, defaultOpen = false }: { leitura: LeituraFormata
     <div className={`rounded-2xl border overflow-hidden transition-all
       ${isEvangelho ? 'border-gold-400/40 shadow-md' : 'border-gold-500/20 hover:border-gold-500/40'}
       bg-parchment-100 dark:bg-marian-700`}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-start justify-between gap-4 p-5 text-left group"
-      >
+      <button onClick={() => setOpen(!open)} className="w-full flex items-start justify-between gap-4 p-5 text-left group">
         <div className="flex-1 min-w-0">
           <p className={`font-sans text-xs uppercase tracking-widest mb-0.5
             ${isEvangelho ? 'text-crimson-600 dark:text-crimson-400' : 'text-gold-600 dark:text-gold-500'}`}>
             {leitura.label}
           </p>
           {leitura.referencia && (
-            <p className="font-body text-[11px] text-marian-400 dark:text-parchment-600 mb-1">
-              {leitura.referencia}
-            </p>
+            <p className="font-body text-[11px] text-marian-400 dark:text-parchment-600 mb-1">{leitura.referencia}</p>
           )}
           {leitura.subtitulo && (
             <h3 className="font-serif text-base leading-snug text-marian-800 dark:text-parchment-200
@@ -190,21 +174,17 @@ function LeituraCard({ leitura, defaultOpen = false }: { leitura: LeituraFormata
             <div className="absolute inset-0 bg-gradient-to-b from-gold-50/40 to-transparent dark:from-gold-900/10 pointer-events-none" />
             <div className="relative z-10 p-5 sm:p-8">
               <div className="text-center mb-5"><span className="text-gold-400/60 text-lg">✦</span></div>
-
               {leitura.subtitulo && (
                 <p className="font-body text-sm italic text-marian-500 dark:text-parchment-500 mb-5 text-center">
                   {leitura.subtitulo}
                 </p>
               )}
-
               <p className="font-body text-base text-marian-800 dark:text-parchment-200 leading-loose whitespace-pre-line">
-                <div dangerouslySetInnerHTML={{ __html: formatarVersiculos(leitura.texto) }} />
+                {<div dangerouslySetInnerHTML={{ __html: formatarVersiculos(leitura.texto) }} />}
               </p>
-
               <p className="font-body text-sm italic text-marian-400 dark:text-parchment-600 mt-5 text-right">
                 {isEvangelho ? 'Palavra da Salvação.' : 'Palavra do Senhor.'}
               </p>
-
               <div className="text-center mt-4"><span className="text-gold-400/60 text-lg">✦</span></div>
             </div>
           </div>
@@ -215,29 +195,23 @@ function LeituraCard({ leitura, defaultOpen = false }: { leitura: LeituraFormata
 }
 
 // ── Card do Salmo ──────────────────────────────────────────────────────────
-function SalmoCard({ salmo }: { salmo: SalmoFormatado }) {
+function SalmoCard({ salmo }: { salmo: LinhasSalmo }) {
   const [open, setOpen] = useState(false);
+
+  // Refrão para mostrar no card fechado
+  const refraoNormal = salmo.linhas.find(l => l.tipo === 'refrao-normal');
 
   return (
     <div className="rounded-2xl border border-gold-500/20 bg-parchment-100 dark:bg-marian-700 hover:border-gold-500/40 overflow-hidden transition-all">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-start justify-between gap-4 p-5 text-left group"
-      >
+      <button onClick={() => setOpen(!open)} className="w-full flex items-start justify-between gap-4 p-5 text-left group">
         <div className="flex-1 min-w-0">
           <p className="font-sans text-xs uppercase tracking-widest text-gold-600 dark:text-gold-500 mb-0.5">
-            Salmo Responsorial
+            Responsório {salmo.referencia}
           </p>
-          {salmo.referencia && (
-            <p className="font-body text-[11px] text-marian-400 dark:text-parchment-600 mb-1.5">
-              {salmo.referencia}
-            </p>
-          )}
-          {/* Refrão sempre visível no card fechado */}
-          {salmo.refrao && (
+          {refraoNormal && (
             <p className="font-serif text-sm italic text-marian-700 dark:text-parchment-300 leading-snug">
               <span className="font-sans text-[10px] not-italic text-gold-600 dark:text-gold-500 mr-1.5">R.</span>
-              {salmo.refrao}
+              {refraoNormal.texto}
             </p>
           )}
         </div>
@@ -253,32 +227,33 @@ function SalmoCard({ salmo }: { salmo: SalmoFormatado }) {
             <div className="relative z-10 p-5 sm:p-8">
               <div className="text-center mb-6"><span className="text-gold-400/60 text-lg">✦</span></div>
 
-              {/* Refrão em destaque no topo */}
-              {salmo.refrao && (
-                <div className="bg-gold-50 dark:bg-gold-900/20 border border-gold-400/30 rounded-xl px-5 py-4 mb-6 text-center">
-                  <p className="font-sans text-[10px] uppercase tracking-widest text-gold-600 dark:text-gold-500 mb-1">Resposta</p>
-                  <p className="font-body text-base font-semibold text-marian-800 dark:text-parchment-100 italic leading-relaxed">
-                    {salmo.refrao}
-                  </p>
-                </div>
-              )}
-
-              {/* Cada estrofe separada com R. após */}
-              {salmo.estrofes.map((estrofe, i) => (
-                <div key={i} className="mb-2">
-                  <p className="font-body text-base text-marian-800 dark:text-parchment-200 leading-loose py-2 border-b border-gold-500/10">
-                    {estrofe}
-                  </p>
-                  {salmo.refrao && (
-                    <p className="font-body text-sm italic font-semibold text-marian-700 dark:text-parchment-200 leading-relaxed py-2.5">
-                      <span className="font-sans text-[10px] not-italic text-gold-600 dark:text-gold-500 mr-2 uppercase tracking-widest">R.</span>
-                      {salmo.refrao}
+              {/* Renderiza cada linha na ordem exata que veio da API */}
+              <div className="space-y-4">
+                {salmo.linhas.map((linha, i) => {
+                  if (linha.tipo === 'refrao-normal') {
+                    return (
+                      <p key={i} className="font-body text-base text-marian-800 dark:text-parchment-200 leading-loose">
+                        — {linha.texto}
+                      </p>
+                    );
+                  }
+                  if (linha.tipo === 'refrao-negrito') {
+                    return (
+                      <p key={i} className="font-body text-base font-bold text-marian-800 dark:text-parchment-100 leading-loose">
+                        — {linha.texto}
+                      </p>
+                    );
+                  }
+                  // estrofe
+                  return (
+                    <p key={i} className="font-body text-base text-marian-700 dark:text-parchment-300 leading-loose mt-3">
+                      — {linha.texto}
                     </p>
-                  )}
-                </div>
-              ))}
+                  );
+                })}
+              </div>
 
-              <div className="text-center mt-4"><span className="text-gold-400/60 text-lg">✦</span></div>
+              <div className="text-center mt-6"><span className="text-gold-400/60 text-lg">✦</span></div>
             </div>
           </div>
         </div>
@@ -287,46 +262,49 @@ function SalmoCard({ salmo }: { salmo: SalmoFormatado }) {
   );
 }
 
+
 // ── Página principal ───────────────────────────────────────────────────────
+const HOJE = new Date();
+HOJE.setHours(0, 0, 0, 0);
+
 export default function LeituraPage() {
+  const [dataAtual, setDataAtual] = useState<Date>(new Date(HOJE));
   const [primeiraLeitura, setPrimeiraLeitura] = useState<LeituraFormatada | null>(null);
   const [segundaLeitura, setSegundaLeitura] = useState<LeituraFormatada | null>(null);
-  const [salmo, setSalmo] = useState<SalmoFormatado | null>(null);
+  const [salmo, setSalmo] = useState<LinhasSalmo | null>(null);
   const [evangelho, setEvangelho] = useState<LeituraFormatada | null>(null);
   const [meta, setMeta] = useState<{ liturgia: string; cor: string; santos?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const hoje = new Date();
-  const dataFormatada = hoje.toLocaleDateString('pt-BR', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  });
-  const dia = String(hoje.getDate()).padStart(2, '0');
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  const ano = hoje.getFullYear();
+  // Diferença em dias em relação a hoje
+  const diffDias = Math.round((dataAtual.getTime() - HOJE.getTime()) / (1000 * 60 * 60 * 24));
+  const podeAnterior = diffDias > -60;
+  const podePosterior = diffDias < 60;
 
-  const fetchLiturgia = async () => {
+  const fetchLiturgia = async (data: Date) => {
     setLoading(true);
     setError('');
+    setPrimeiraLeitura(null);
+    setSegundaLeitura(null);
+    setSalmo(null);
+    setEvangelho(null);
+    setMeta(null);
+
     try {
-      const res = await fetch(`https://liturgia.up.railway.app/${dia}-${mes}-${ano}`);
+      const res = await fetch(`https://liturgia.up.railway.app/${formatApiDate(data)}`);
       if (!res.ok) throw new Error('API indisponível');
       const json: LiturgiaAPIResponse = await res.json();
+      console.log('SALMO DA API:', json.salmo);
 
-      // 1ª Leitura
       const prim = json.primeiraLeitura ?? json.leituras?.[0];
       setPrimeiraLeitura(prim ? parseLeitura(prim, 'Primeira Leitura') : null);
 
-      // 2ª Leitura — só exibe se existir E tiver texto
       const seg = json.segundaLeitura ?? json.leituras?.[1];
       setSegundaLeitura(seg && seg.texto?.trim() ? parseLeitura(seg, 'Segunda Leitura') : null);
 
-      // Salmo
       setSalmo(json.salmo ? parseSalmo(json.salmo) : null);
-
-      // Evangelho
       setEvangelho(json.evangelho ? parseLeitura(json.evangelho, 'Evangelho do Dia') : null);
-
       setMeta({
         liturgia: json.liturgia || '',
         cor: (json.cor || 'verde').toLowerCase(),
@@ -337,11 +315,19 @@ export default function LeituraPage() {
     } finally {
       setLoading(false);
     }
+
   };
 
-  useEffect(() => { fetchLiturgia(); }, []);
+  useEffect(() => { fetchLiturgia(dataAtual); }, []);
+
+  const irParaDia = (novaData: Date) => {
+    setDataAtual(novaData);
+    fetchLiturgia(novaData);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const corInfo = COR_MAP[meta?.cor || 'verde'] || COR_MAP.verde;
+  const eHoje = isHoje(dataAtual);
 
   return (
     <div className="min-h-screen">
@@ -355,12 +341,59 @@ export default function LeituraPage() {
             </div>
           </div>
           <p className="font-sans text-xs uppercase tracking-[0.3em] text-gold-600 dark:text-gold-500 mb-3">
-            ✦ Igreja Católica Apostólica Romana 🇻🇦✦
+            ✦ Liturgia da Igreja Católica ✦
           </p>
           <h1 className="font-serif text-4xl sm:text-5xl font-semibold text-crimson-800 dark:text-parchment-100 mb-3">
             Leitura do Dia
           </h1>
-          <p className="font-body text-marian-600 dark:text-parchment-400 capitalize">{dataFormatada}</p>
+
+          {/* Data com navegação */}
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <button
+              onClick={() => podeAnterior && irParaDia(addDias(dataAtual, -1))}
+              disabled={!podeAnterior}
+              className="p-2 rounded-full border border-gold-500/30 text-marian-500 dark:text-parchment-500
+                hover:border-gold-500/60 hover:text-crimson-600 dark:hover:text-gold-400
+                disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <div className="text-center min-w-0">
+              <p className="font-body text-marian-600 dark:text-parchment-400 capitalize text-sm sm:text-base">
+                {formatDisplay(dataAtual)}
+              </p>
+              {!eHoje && (
+                <button
+                  onClick={() => irParaDia(new Date(HOJE))}
+                  className="font-body text-xs text-gold-600 dark:text-gold-500 underline underline-offset-2 mt-1 hover:text-crimson-600 dark:hover:text-gold-400 transition-colors"
+                >
+                  Voltar para hoje
+                </button>
+              )}
+              {eHoje && (
+                <span className="font-body text-xs text-gold-600 dark:text-gold-500">Hoje</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => podePosterior && irParaDia(addDias(dataAtual, 1))}
+              disabled={!podePosterior}
+              className="p-2 rounded-full border border-gold-500/30 text-marian-500 dark:text-parchment-500
+                hover:border-gold-500/60 hover:text-crimson-600 dark:hover:text-gold-400
+                disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Indicador de dias */}
+          {!eHoje && (
+            <p className="font-body text-xs text-marian-400 dark:text-parchment-600 mt-2">
+              {diffDias > 0 ? `${diffDias} dia${diffDias > 1 ? 's' : ''} à frente` : `${Math.abs(diffDias)} dia${Math.abs(diffDias) > 1 ? 's' : ''} atrás`}
+              {' · '}limite: 60 dias
+            </p>
+          )}
 
           {meta && (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -390,9 +423,7 @@ export default function LeituraPage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-2 border-gold-500/30 border-t-gold-500 rounded-full animate-spin" />
-            <p className="font-body text-sm text-marian-500 dark:text-parchment-500">
-              Carregando leituras do dia...
-            </p>
+            <p className="font-body text-sm text-marian-500 dark:text-parchment-500">Carregando leituras...</p>
           </div>
         )}
 
@@ -403,7 +434,7 @@ export default function LeituraPage() {
               <AlertCircle size={26} className="text-crimson-600 dark:text-crimson-400" />
             </div>
             <p className="font-body text-marian-600 dark:text-parchment-400">{error}</p>
-            <button onClick={fetchLiturgia}
+            <button onClick={() => fetchLiturgia(dataAtual)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-crimson-700 hover:bg-crimson-800
                 text-parchment-100 font-body text-sm transition-all">
               <RefreshCw size={15} /> Tentar novamente
@@ -411,16 +442,14 @@ export default function LeituraPage() {
           </div>
         )}
 
-        {/* Conteúdo — ordem litúrgica correta */}
+        {/* Conteúdo */}
         {!loading && !error && (
           <div className="space-y-3">
 
             {/* 1 — Primeira Leitura */}
-            {primeiraLeitura && (
-              <LeituraCard leitura={primeiraLeitura} defaultOpen />
-            )}
+            {primeiraLeitura && <LeituraCard leitura={primeiraLeitura} defaultOpen />}
 
-            {/* 2 — Salmo Responsorial */}
+            {/* 2 — Salmo */}
             {salmo && (
               <>
                 <Separador label="Salmo Responsorial" />
@@ -428,7 +457,7 @@ export default function LeituraPage() {
               </>
             )}
 
-            {/* 3 — Segunda Leitura (só aparece se existir) */}
+            {/* 3 — Segunda Leitura (só se existir) */}
             {segundaLeitura && (
               <>
                 <Separador label="Segunda Leitura" />
@@ -440,20 +469,44 @@ export default function LeituraPage() {
             {evangelho && (
               <>
                 <Separador label="✦ Evangelho do Dia ✦" />
-                <LeituraCard
-                  leitura={evangelho}
-                  defaultOpen />
+                <LeituraCard leitura={evangelho} defaultOpen />
               </>
             )}
 
-            {/* Rodapé */}
-            <div className="text-center pt-6 space-y-3">
-              <button onClick={fetchLiturgia}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gold-500/30
-                  font-body text-sm text-marian-500 dark:text-parchment-500 hover:border-gold-500/60 transition-colors">
-                <RefreshCw size={13} /> Atualizar leituras
-              </button>
-              <p className="font-body text-xs text-marian-400 dark:text-parchment-600 italic">
+            {/* Navegação inferior + rodapé */}
+            <div className="pt-8 space-y-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => podeAnterior && irParaDia(addDias(dataAtual, -1))}
+                  disabled={!podeAnterior}
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-gold-500/30
+                    font-body text-sm text-marian-600 dark:text-parchment-400
+                    hover:border-gold-500/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft size={15} /> Dia anterior
+                </button>
+                {!eHoje && (
+                  <button
+                    onClick={() => irParaDia(new Date(HOJE))}
+                    className="px-5 py-3 rounded-xl bg-gold-500/10 border border-gold-500/40
+                      font-body text-sm text-gold-700 dark:text-gold-400
+                      hover:bg-gold-500/20 transition-all"
+                  >
+                    Hoje
+                  </button>
+                )}
+                <button
+                  onClick={() => podePosterior && irParaDia(addDias(dataAtual, 1))}
+                  disabled={!podePosterior}
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-gold-500/30
+                    font-body text-sm text-marian-600 dark:text-parchment-400
+                    hover:border-gold-500/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  Próximo dia <ChevronRight size={15} />
+                </button>
+              </div>
+
+              <p className="font-body text-xs text-marian-400 dark:text-parchment-600 italic text-center">
                 Leituras da Santa Missa conforme o Missal Romano da Igreja Católica
               </p>
             </div>
@@ -462,4 +515,5 @@ export default function LeituraPage() {
       </div>
     </div>
   );
+
 }

@@ -19,6 +19,7 @@ export type PrayerCategory =
   | 'daily' 
   | 'marian'
   | 'sacred_heart'
+  | 'ladainha'
   | 'study';
 
 export const CATEGORY_LABELS: Record<PrayerCategory, string> = {
@@ -29,6 +30,7 @@ export const CATEGORY_LABELS: Record<PrayerCategory, string> = {
   daily: 'Diária',
   marian: 'Mariana',
   sacred_heart: 'Sagrado Coração',
+  ladainha: 'Ladainha',
   study: "Estudo"
 };
 

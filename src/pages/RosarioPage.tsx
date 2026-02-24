@@ -62,9 +62,9 @@ const MISTERIOS_SAO_LUIS = [
     cor: 'bg-white dark:bg-marian-700',
     acento: 'border-gold-400',
     lista: [
-      { numero: 1, nome: 'A Anunciação do Anjo a Virgem Maria', meditacao: 'O Anjo Gabriel anuncia a Maria que ela será a Mãe do Salvador. Maria, cheia de graça, responde com total entrega: "Eis aqui a serva do Senhor; faça-se em mim segundo a tua palavra."', intencao: '"Nós Vos oferecemos, Senhor Jesus, esta primeira dezena, para honrar a vossa Encarnação no seio da Virgem Maria; e Vos pedimos, que por este mistério e por intercessão dela, uma profunda humildade."' },
-      { numero: 2, nome: 'A Visitação de Maria a Isabel', meditacao: 'Maria vai apressadamente visitar sua prima Isabel. Ao ouvir a saudação de Maria, João Batista exulta no seio de sua mãe. Isabel, cheia do Espírito Santo, exclama: "Bendita és tu entre as mulheres!"' },
-      { numero: 3, nome: 'O Nascimento de Jesus em Belém', meditacao: 'Jesus nasce em uma manjedoura, envolvido em faixas. Os anjos anunciam a boa-nova aos pastores: "Hoje vos nasceu o Salvador, que é Cristo Senhor, na cidade de Davi."' },
+      { numero: 1, nome: 'A Anunciação do Anjo a Virgem Maria', meditacao: 'O Anjo Gabriel anuncia a Maria que ela será a Mãe do Salvador. Maria, cheia de graça, responde com total entrega: "Eis aqui a serva do Senhor; faça-se em mim segundo a tua palavra."', intencao: "Nós Vos oferecemos, Senhor Jesus, esta primeira dezena, para honrar a vossa Encarnação no seio da Virgem Maria; e Vos pedimos, que por este mistério e por intercessão dela, uma profunda humildade.", gracas: "Graças do mistério da Encarnação, descei às nossas almas. Assim seja." },
+      { numero: 2, nome: 'A Visitação de Maria a Isabel', meditacao: 'Maria vai apressadamente visitar sua prima Isabel. Ao ouvir a saudação de Maria, João Batista exulta no seio de sua mãe. Isabel, cheia do Espírito Santo, exclama: "Bendita és tu entre as mulheres!"', intencao: "Nós Vos oferecemos, Senhor Jesus, esta segunda dezena, para honrar a Visitação de Vossa Santíssima Mãe à sua prima Santa Isabel e a santificação de São João Batista; e Vos pedimos, por este mistério e por intercessão de Vossa Mãe Santíssima, a caridade perfeita para com o próximo.", gracas: "Graças do mistério da visitação, descei às nossas almas. Assim seja." },
+      { numero: 3, nome: 'O Nascimento de Jesus em Belém', meditacao: 'Jesus nasce em uma manjedoura, envolvido em faixas. Os anjos anunciam a boa-nova aos pastores: "Hoje vos nasceu o Salvador, que é Cristo Senhor, na cidade de Davi."', intencao: "Nós Vos oferecemos, Senhor Jesus, esta terceira dezena, para honrar o vosso Nascimento no estábulo de Belém; evos pedimos, por este mistério e por intercessão de Vossa Mãe Santíssima, o desapego dos bens terrenos e das riquezas e o amor à santa pobreza.", gracas: "Graças do mistério do nascimento de Jesus, descei às nossas almas. Assim seja." },
       { numero: 4, nome: 'A Apresentação de Jesus no Templo', meditacao: 'Maria e José apresentam o Menino Jesus no templo de Jerusalém. O ancião Simeão, tomando Jesus nos braços, profetiza: "Uma espada traspassará a tua própria alma."' },
       { numero: 5, nome: 'A Perda e o Encontro de Jesus no Templo', meditacao: 'Aos doze anos, Jesus fica em Jerusalém enquanto Maria e José retornam. Após três dias de angustiosa busca, encontram-no no Templo, ensinando os doutores da Lei.' },
     ],
@@ -467,10 +467,13 @@ export default function RosarioPage() {
                             </p>
                             <div className='space-y-4'>
                               <p className="font-body text-xs text-marian-500 dark:text-parchment-500">
-                                {mist.intencao}
+                                "{mist.intencao}"
                               </p>
                               <p className="font-body text-xs text-marian-500 dark:text-parchment-500">
                                 1× Pai Nosso · 10× Ave Maria · 1× Glória ao Pai · Oração de Fátima
+                              </p>
+                              <p className="font-body text-xs text-marian-500 dark:text-parchment-500">
+                                "{mist.gracas}"
                               </p>
                             </div>
                           </div>
@@ -482,7 +485,12 @@ export default function RosarioPage() {
               })}
               <div className="text-center mb-10 pt-12">
                 <p className="font-body text-marian-600 dark:text-parchment-400 italic">
-                  As orações dos mistérios foram retiradas do Livro 'O Segredo Admirável do Santíssimo Rosário' de São Luis Maria Grignio de Montfort
+                  As orações dos mistérios foram retiradas do Livro <a
+                    href='https://amzn.to/4aPZ4rt'
+                    target='_blank'
+                    className='underline text-marian-800 hover:text-marian-400'>
+                    'O Segredo Admirável do Santíssimo Rosário'
+                  </a> de São Luis Maria Grignio de Montfort.
                 </p>
               </div>
             </div>

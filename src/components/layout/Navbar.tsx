@@ -41,6 +41,7 @@ export default function Navbar() {
     { to: '/novenas', label: 'Novenas' },
     { to: '/rosario', label: '📿 Rosário' },
     { to: '/favoritas', label: 'Favoritas' },
+    { to: '/recomendacoes_leitura', label: 'Recomendações de Leitura' },
   ];
 
   return (

@@ -11,6 +11,8 @@ import AdminPage from './pages/AdminPage';
 import RosarioPage from './pages/RosarioPage';
 import LeituraPage from './pages/LeituraPage';
 import BibliePage from './pages/BibliePage';
+import LivrosPage from './pages/LivrosPage';
+import SagradoCoracaoPage from './pages/SagradoCoracaoPage';
 
 export default function App() {
   return (
@@ -19,6 +21,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/sagrado-coracao" element={<SagradoCoracaoPage />} />
             <Route path="/oracoes" element={<PrayersPage />} />
             <Route path="/oracao/:slug" element={<PrayerPage />} />
             <Route path="/novenas" element={<NovenasPage />} />
@@ -27,6 +30,7 @@ export default function App() {
             <Route path="/rosario" element={<RosarioPage />} />
             <Route path="/leitura-do-dia" element={<LeituraPage />} />
             <Route path="/biblia" element={<BibliePage />} />
+            <Route path="/livros" element={<LivrosPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Routes>

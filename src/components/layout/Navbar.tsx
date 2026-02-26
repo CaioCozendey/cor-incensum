@@ -39,9 +39,10 @@ export default function Navbar() {
     { to: '/', label: 'Início' },
     { to: '/oracoes', label: 'Orações' },
     { to: '/novenas', label: 'Novenas' },
-    { to: '/rosario', label: '📿 Rosário' },
+    { to: '/rosario', label: 'Rosário' },
+    { to: '/sagrado-coracao', label: 'Sagrado Coração' },
+    { to: '/livros', label: 'livros' },
     { to: '/favoritas', label: 'Favoritas' },
-    { to: '/recomendacoes_leitura', label: 'Recomendações de Leitura' },
   ];
 
   return (

@@ -118,7 +118,7 @@ export default function SagradoCoracaoPage() {
         <div className="absolute inset-0 bg-radial-crimson opacity-40" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <div className="flex justify-center mb-6">
-            <img src='https://santhatela.com.br/wp-content/uploads/2019/12/pintor-barroco-desconhecido-sagrado-coracao-de-jesus-d.jpg' alt='Imagem do Sagrado Coração de Jesus' className=''></img>
+            <img src='/jesus-e-sagrado-coracao.png' alt='Imagem do Sagrado Coração de Jesus' className=''></img>
           </div>
           <p className="font-sans text-xs uppercase tracking-[0.3em] text-crimson-600 dark:text-crimson-400 mb-3">
             ✦ Devoção Católica ✦

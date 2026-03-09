@@ -31,10 +31,16 @@ export default function PrayerCard({ prayer }: PrayerCardProps) {
     .slice(0, 120) + '…';
 
   return (
-    <article className="group relative bg-parchment-100 dark:bg-marian-700 rounded-xl border border-gold-500/20
-      hover:border-gold-500/50 shadow-sm hover:shadow-md hover:shadow-gold-500/10
-      transition-all duration-300 overflow-hidden">
-      
+    <article
+      className="
+      group relative flex flex-col h-full
+      bg-parchment-100 dark:bg-marian-700
+      rounded-xl border border-gold-500/20
+      hover:border-gold-500/50
+      shadow-sm hover:shadow-lg hover:shadow-gold-500/10
+      transition-all duration-300 overflow-hidden
+      "
+    >
       {/* Gold top accent */}
       <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-gold-500 to-crimson-600 transition-all duration-500" />
 
@@ -45,31 +51,57 @@ export default function PrayerCard({ prayer }: PrayerCardProps) {
         </div>
       )}
 
-      <div className="p-6">
-        {/* Category badge */}
-        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-sans tracking-wide mb-3 ${CATEGORY_COLORS[prayer.category] || ''}`}>
+      {/* Conteúdo */}
+      <div className="p-6 flex flex-col flex-grow">
+
+        {/* Category */}
+        <span
+          className={`inline-block w-fit px-2.5 py-0.5 rounded-full text-xs font-sans tracking-wide mb-3 text-gold-600 ${CATEGORY_COLORS[prayer.category] || ''
+            }`}
+        >
           {CATEGORY_LABELS[prayer.category]}
         </span>
 
-        <h3 className="font-serif text-lg font-semibold text-crimson-800 dark:text-parchment-100 mb-1 leading-snug
-          group-hover:text-crimson-700 dark:group-hover:text-gold-400 transition-colors">
+        {/* Title */}
+        <h3
+          className="font-serif text-lg font-semibold text-crimson-800 dark:text-parchment-100 leading-snug mb-3 pb-2 border-b border-gold-500/20 group-hover:text-crimson-700 dark:group-hover:text-gold-400 transition-colors"
+        >
           {prayer.title}
         </h3>
 
+        {/* Subtitle */}
         {prayer.subtitle && (
-          <p className="font-body text-xs italic text-gold-600 dark:text-gold-500 mb-3">{prayer.subtitle}</p>
+          <p className="font-body text-xs italic text-gold-600 dark:text-gold-500 mb-3">
+            {prayer.subtitle}
+          </p>
         )}
 
-        <p className="font-body text-sm text-marian-600 dark:text-parchment-400 leading-relaxed mb-5 line-clamp-3">
+        {/* Text preview */}
+        <p
+          className="
+          font-body text-sm
+          text-marian-600 dark:text-parchment-400
+          leading-relaxed line-clamp-3
+          mb-6
+          "
+        >
           {snippet}
         </p>
 
-        <div className="flex items-center justify-between">
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-auto">
+
           <Link
             to={`/oracao/${prayer.slug}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-              bg-crimson-700 hover:bg-crimson-800 text-parchment-100 dark:text-parchment-200
-              font-body text-sm transition-all duration-200 hover:shadow-md hover:shadow-crimson-900/20"
+            className="
+            inline-flex items-center gap-1.5
+            px-4 py-2 rounded-lg
+            bg-crimson-700 hover:bg-crimson-800
+            text-parchment-100 dark:text-parchment-200
+            font-body text-sm
+            transition-all duration-200
+            hover:shadow-md hover:shadow-crimson-900/20
+            "
           >
             <BookOpen size={14} />
             Ler oração
@@ -77,16 +109,20 @@ export default function PrayerCard({ prayer }: PrayerCardProps) {
 
           <button
             onClick={() => toggleFavorite(prayer.id)}
-            className={`p-2 rounded-full transition-all duration-200
-              ${fav
+            className={`
+            p-2 rounded-full transition-all duration-200
+            ${fav
                 ? 'text-crimson-600 dark:text-crimson-400 bg-crimson-100 dark:bg-crimson-900/30'
                 : 'text-marian-400 dark:text-parchment-500 hover:text-crimson-500 hover:bg-crimson-50 dark:hover:bg-crimson-900/20'
-              }`}
+              }
+            `}
             aria-label={fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
           >
             <Heart size={18} fill={fav ? 'currentColor' : 'none'} />
           </button>
+
         </div>
+
       </div>
     </article>
   );
